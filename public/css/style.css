@@ -1184,3 +1184,41 @@ a:hover {
         max-width: 100%;
     }
 }
+
+/* --------------------------------------------------------------------------
+   Invoice Print Styles
+   -------------------------------------------------------------------------- */
+@media print {
+    body * {
+        visibility: hidden !important;
+    }
+    #invoicePrintModal,
+    #invoicePrintModal .modal-card,
+    #invoicePrintArea,
+    #invoicePrintArea * {
+        visibility: visible !important;
+    }
+    #invoicePrintModal {
+        position: absolute !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: 100% !important;
+        height: auto !important;
+        background: transparent !important;
+        display: block !important;
+        padding: 0 !important;
+    }
+    #invoicePrintModal .modal-card {
+        max-width: 100% !important;
+        width: 100% !important;
+        box-shadow: none !important;
+        border: none !important;
+    }
+    #invoicePrintModal .modal-header,
+    #invoicePrintModal .modal-footer {
+        display: none !important;
+    }
+    #invoicePrintArea {
+        padding: 0 !important;
+    }
+}

@@ -967,77 +967,363 @@ app.get('/api/customers', async (req, res) => {
     }
 });
 
+// --------------------------------------------------------------------------
+// 8. BILLS & INVOICE MANAGEMENT (MULTI-PRODUCT & EDITABLE INVOICES)
+// --------------------------------------------------------------------------
+
+// GET /api/bills - All Invoices with Customer Details & Product Line Items
 app.get('/api/bills', async (req, res) => {
     try {
         const sql = `
-            SELECT s.id, s.invoice_no, s.date, s.qty, s.unit_price, s.total_price, s.dues, s.coll_cash, s.notes,
-                   c.name AS customer_name, c.address, p.name AS product_name, e.name AS employee_name
-            FROM sales_transactions s
-            JOIN customers c ON s.customer_id = c.id
-            JOIN products p ON s.product_id = p.id
-            JOIN employees e ON s.employee_id = e.id
-            ORDER BY s.date DESC
+            SELECT 
+                inv.id, inv.invoice_no, inv.date, inv.subtotal, inv.discount_amt, inv.total_price, inv.coll_cash, inv.dues, inv.notes,
+                c.id AS customer_id, c.name AS customer_name, c.code AS customer_code, c.phone AS customer_phone, c.address, c.territory,
+                e.id AS employee_id, e.name AS employee_name, e.code AS employee_code,
+                COALESCE(
+                    json_agg(
+                        json_build_object(
+                            'id', it.id,
+                            'product_id', it.product_id,
+                            'product_name', p.name,
+                            'product_code', p.code,
+                            'pack_size', p.pack_size,
+                            'qty', it.qty,
+                            'unit_price', it.unit_price,
+                            'total_price', it.total_price,
+                            'bonus_qty', it.bonus_qty
+                        ) ORDER BY it.id ASC
+                    ) FILTER (WHERE it.id IS NOT NULL), '[]'::json
+                ) AS items
+            FROM invoices inv
+            LEFT JOIN customers c ON inv.customer_id = c.id
+            LEFT JOIN employees e ON inv.employee_id = e.id
+            LEFT JOIN invoice_items it ON inv.id = it.invoice_id
+            LEFT JOIN products p ON it.product_id = p.id
+            GROUP BY inv.id, c.id, e.id
+            ORDER BY inv.date DESC, inv.id DESC
         `;
         const result = await db.query(sql);
+
+        // If no invoices exist yet in invoices table, fallback query from sales_transactions
+        if (result.rows.length === 0) {
+            const legacySql = `
+                SELECT s.id, s.invoice_no, s.date, s.qty, s.unit_price, s.total_price, s.dues, s.coll_cash, s.notes,
+                       c.id AS customer_id, c.name AS customer_name, c.address, c.phone AS customer_phone,
+                       p.id AS product_id, p.name AS product_name, e.id AS employee_id, e.name AS employee_name
+                FROM sales_transactions s
+                LEFT JOIN customers c ON s.customer_id = c.id
+                LEFT JOIN products p ON s.product_id = p.id
+                LEFT JOIN employees e ON s.employee_id = e.id
+                ORDER BY s.date DESC
+            `;
+            const legacyRes = await db.query(legacySql);
+            return res.json({
+                status: 'success',
+                data: legacyRes.rows.map(b => ({
+                    ...b,
+                    subtotal: b.total_price,
+                    discount_amt: 0,
+                    subtotal_formatted: formatSouthAsianNumber(b.total_price),
+                    discount_amt_formatted: '0',
+                    total_price_formatted: formatSouthAsianNumber(b.total_price),
+                    coll_cash_formatted: formatSouthAsianNumber(b.coll_cash),
+                    dues_formatted: formatSouthAsianNumber(b.dues),
+                    items_count: 1,
+                    products_summary: `${b.product_name || 'Item'} (${b.qty})`,
+                    items: [{
+                        product_id: b.product_id,
+                        product_name: b.product_name,
+                        qty: b.qty,
+                        unit_price: b.unit_price,
+                        total_price: b.total_price,
+                        bonus_qty: 0
+                    }]
+                }))
+            });
+        }
+
         res.json({
             status: 'success',
             data: result.rows.map(b => ({
                 ...b,
+                subtotal_formatted: formatSouthAsianNumber(b.subtotal),
+                discount_amt_formatted: formatSouthAsianNumber(b.discount_amt),
                 total_price_formatted: formatSouthAsianNumber(b.total_price),
-                dues_formatted: formatSouthAsianNumber(b.dues)
+                coll_cash_formatted: formatSouthAsianNumber(b.coll_cash),
+                dues_formatted: formatSouthAsianNumber(b.dues),
+                items_count: b.items.length,
+                products_summary: b.items.map(i => `${i.product_name || 'Product'} (${i.qty})`).join(', ') || 'No items'
             }))
+        });
+    } catch (err) {
+        console.error('Error fetching bills:', err);
+        res.status(500).json({ status: 'error', message: err.message });
+    }
+});
+
+// GET /api/invoices/:invoice_no - Single Invoice Detail for View / Edit / Print
+app.get('/api/invoices/:invoice_no', async (req, res) => {
+    try {
+        const { invoice_no } = req.params;
+        const sql = `
+            SELECT 
+                inv.id, inv.invoice_no, inv.date, inv.subtotal, inv.discount_amt, inv.total_price, inv.coll_cash, inv.dues, inv.notes,
+                c.id AS customer_id, c.name AS customer_name, c.code AS customer_code, c.phone AS customer_phone, c.address, c.territory,
+                e.id AS employee_id, e.name AS employee_name, e.code AS employee_code,
+                COALESCE(
+                    json_agg(
+                        json_build_object(
+                            'id', it.id,
+                            'product_id', it.product_id,
+                            'product_name', p.name,
+                            'product_code', p.code,
+                            'pack_size', p.pack_size,
+                            'qty', it.qty,
+                            'unit_price', it.unit_price,
+                            'total_price', it.total_price,
+                            'bonus_qty', it.bonus_qty
+                        ) ORDER BY it.id ASC
+                    ) FILTER (WHERE it.id IS NOT NULL), '[]'::json
+                ) AS items
+            FROM invoices inv
+            LEFT JOIN customers c ON inv.customer_id = c.id
+            LEFT JOIN employees e ON inv.employee_id = e.id
+            LEFT JOIN invoice_items it ON inv.id = it.invoice_id
+            LEFT JOIN products p ON it.product_id = p.id
+            WHERE inv.invoice_no = $1
+            GROUP BY inv.id, c.id, e.id
+        `;
+        const result = await db.query(sql, [invoice_no]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ status: 'error', message: 'Invoice not found' });
+        }
+        const b = result.rows[0];
+        res.json({
+            status: 'success',
+            invoice: {
+                ...b,
+                subtotal_formatted: formatSouthAsianNumber(b.subtotal),
+                discount_amt_formatted: formatSouthAsianNumber(b.discount_amt),
+                total_price_formatted: formatSouthAsianNumber(b.total_price),
+                coll_cash_formatted: formatSouthAsianNumber(b.coll_cash),
+                dues_formatted: formatSouthAsianNumber(b.dues)
+            }
         });
     } catch (err) {
         res.status(500).json({ status: 'error', message: err.message });
     }
 });
 
+// POST /api/invoices - Create OR Update Multi-Product Invoice (Edit customer bill)
+app.post('/api/invoices', async (req, res) => {
+    const client = await db.pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const {
+            invoice_no,
+            date,
+            customer_id,
+            employee_id,
+            items,
+            discount_amt,
+            coll_cash,
+            notes
+        } = req.body;
+
+        if (!customer_id || !employee_id || !date || !items || !Array.isArray(items) || items.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ status: 'error', message: 'Customer, Sales Officer, Date, and at least one Product item are required' });
+        }
+
+        // Calculate totals across all items
+        let subtotal = 0;
+        const processedItems = items.map(it => {
+            const qty = Number(it.qty) || 1;
+            const unit_price = Number(it.unit_price) || 0;
+            const line_total = qty * unit_price;
+            subtotal += line_total;
+            return {
+                product_id: Number(it.product_id),
+                qty,
+                unit_price,
+                bonus_qty: Number(it.bonus_qty) || 0,
+                total_price: line_total
+            };
+        });
+
+        const discount = Number(discount_amt) || 0;
+        const total_price = Math.max(0, subtotal - discount);
+        const paid_cash = Number(coll_cash) || 0;
+        const dues = Math.max(0, total_price - paid_cash);
+
+        let finalInvoiceNo = invoice_no ? invoice_no.trim() : '';
+        let invoiceId;
+        let isEdit = false;
+
+        if (finalInvoiceNo) {
+            const checkRes = await client.query('SELECT id FROM invoices WHERE invoice_no = $1', [finalInvoiceNo]);
+            if (checkRes.rows.length > 0) {
+                isEdit = true;
+                invoiceId = checkRes.rows[0].id;
+                await client.query(`
+                    UPDATE invoices 
+                    SET date = $1, customer_id = $2, employee_id = $3, subtotal = $4, discount_amt = $5,
+                        total_price = $6, coll_cash = $7, dues = $8, notes = $9, updated_at = NOW()
+                    WHERE id = $10
+                `, [date, Number(customer_id), Number(employee_id), subtotal, discount, total_price, paid_cash, dues, notes || '', invoiceId]);
+
+                // Delete old items & old sales_transactions for this invoice
+                await client.query('DELETE FROM invoice_items WHERE invoice_id = $1', [invoiceId]);
+                await client.query('DELETE FROM sales_transactions WHERE invoice_no = $1', [finalInvoiceNo]);
+            }
+        }
+
+        if (!isEdit) {
+            if (!finalInvoiceNo) {
+                finalInvoiceNo = 'INV-' + Date.now().toString().slice(-6);
+            }
+            const insRes = await client.query(`
+                INSERT INTO invoices (invoice_no, date, customer_id, employee_id, subtotal, discount_amt, total_price, coll_cash, dues, notes)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                RETURNING id
+            `, [finalInvoiceNo, date, Number(customer_id), Number(employee_id), subtotal, discount, total_price, paid_cash, dues, notes || '']);
+            invoiceId = insRes.rows[0].id;
+        }
+
+        // Insert new invoice_items and sync to sales_transactions
+        for (let i = 0; i < processedItems.length; i++) {
+            const it = processedItems[i];
+            await client.query(`
+                INSERT INTO invoice_items (invoice_id, invoice_no, product_id, qty, unit_price, total_price, bonus_qty)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
+            `, [invoiceId, finalInvoiceNo, it.product_id, it.qty, it.unit_price, it.total_price, it.bonus_qty]);
+
+            // Sync with sales_transactions: only the first row carries header discount/cash/dues to prevent double-counting in legacy sums
+            const rowDiscount = i === 0 ? discount : 0;
+            const rowCollCash = i === 0 ? paid_cash : 0;
+            const rowDues = i === 0 ? dues : 0;
+
+            await client.query(`
+                INSERT INTO sales_transactions (
+                    invoice_no, date, employee_id, customer_id, product_id,
+                    qty, unit_price, total_price, bonus_qty, discount_amt,
+                    dues, coll_cash, coll_comm, notes
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 0, $13)
+            `, [
+                finalInvoiceNo, date, Number(employee_id), Number(customer_id), it.product_id,
+                it.qty, it.unit_price, it.total_price, it.bonus_qty, rowDiscount,
+                rowDues, rowCollCash, notes || ''
+            ]);
+        }
+
+        await client.query('COMMIT');
+
+        res.status(200).json({
+            status: 'success',
+            message: isEdit 
+                ? `Invoice ${finalInvoiceNo} updated successfully! Customer bill updated with new items.`
+                : `Invoice ${finalInvoiceNo} generated successfully with ${processedItems.length} product(s)!`,
+            invoice_no: finalInvoiceNo,
+            invoice_id: invoiceId,
+            is_edit: isEdit,
+            subtotal,
+            total_price,
+            dues
+        });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('Invoice save error:', err);
+        res.status(500).json({ status: 'error', message: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+// POST /api/transactions (Legacy single item endpoint - redirects to multi-item logic)
 app.post('/api/transactions', async (req, res) => {
     try {
         const {
-            employee_id, customer_id, product_id, date, qty, unit_price,
-            bonus_qty, discount_amt, dues, coll_cash, coll_comm, notes
+            invoice_no, employee_id, customer_id, product_id, date, qty, unit_price,
+            bonus_qty, discount_amt, dues, coll_cash, notes
         } = req.body;
 
-        if (!employee_id || !date || !qty) {
+        if (!employee_id || !date || !qty || !product_id) {
             return res.status(400).json({ status: 'error', message: 'Missing required fields' });
         }
 
-        const calculatedTotal = Number(qty) * Number(unit_price || 0);
-        const invoiceNo = 'INV-' + Date.now().toString().slice(-6);
+        // Forward to /api/invoices logic
+        const items = [{
+            product_id: Number(product_id),
+            qty: Number(qty),
+            unit_price: Number(unit_price || 0),
+            bonus_qty: Number(bonus_qty || 0)
+        }];
 
-        const sql = `
+        const forwardReq = {
+            body: {
+                invoice_no,
+                date,
+                customer_id,
+                employee_id,
+                items,
+                discount_amt,
+                coll_cash,
+                notes
+            }
+        };
+
+        // Reuse /api/invoices logic via direct query
+        const calculatedTotal = Number(qty) * Number(unit_price || 0);
+        const finalInvoiceNo = invoice_no || ('INV-' + Date.now().toString().slice(-6));
+
+        const insRes = await db.query(`
+            INSERT INTO invoices (invoice_no, date, customer_id, employee_id, subtotal, discount_amt, total_price, coll_cash, dues, notes)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            ON CONFLICT (invoice_no) DO UPDATE 
+            SET date = EXCLUDED.date, customer_id = EXCLUDED.customer_id, employee_id = EXCLUDED.employee_id,
+                subtotal = EXCLUDED.subtotal, discount_amt = EXCLUDED.discount_amt, total_price = EXCLUDED.total_price,
+                coll_cash = EXCLUDED.coll_cash, dues = EXCLUDED.dues, notes = EXCLUDED.notes, updated_at = NOW()
+            RETURNING id
+        `, [finalInvoiceNo, date, Number(customer_id), Number(employee_id), calculatedTotal, Number(discount_amt || 0), Math.max(0, calculatedTotal - Number(discount_amt || 0)), Number(coll_cash || 0), Number(dues || 0), notes || '']);
+
+        const invoiceId = insRes.rows[0].id;
+
+        await db.query(`
+            INSERT INTO invoice_items (invoice_id, invoice_no, product_id, qty, unit_price, total_price, bonus_qty)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `, [invoiceId, finalInvoiceNo, Number(product_id), Number(qty), Number(unit_price || 0), calculatedTotal, Number(bonus_qty || 0)]);
+
+        await db.query(`
             INSERT INTO sales_transactions (
                 invoice_no, date, employee_id, customer_id, product_id,
                 qty, unit_price, total_price, bonus_qty, discount_amt,
                 dues, coll_cash, coll_comm, notes
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-            RETURNING id
-        `;
-
-        const result = await db.query(sql, [
-            invoiceNo,
-            date,
-            Number(employee_id),
-            customer_id ? Number(customer_id) : null,
-            product_id ? Number(product_id) : null,
-            Number(qty),
-            Number(unit_price || 0),
-            calculatedTotal,
-            Number(bonus_qty || 0),
-            Number(discount_amt || 0),
-            Number(dues || 0),
-            Number(coll_cash || 0),
-            Number(coll_comm || 0),
-            notes || ''
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 0, $13)
+        `, [
+            finalInvoiceNo, date, Number(employee_id), Number(customer_id), Number(product_id),
+            Number(qty), Number(unit_price || 0), calculatedTotal, Number(bonus_qty || 0), Number(discount_amt || 0),
+            Number(dues || 0), Number(coll_cash || 0), notes || ''
         ]);
 
         res.status(201).json({
             status: 'success',
             message: 'Transaction saved to Supabase PostgreSQL successfully',
-            insertedId: result.rows[0].id,
-            invoiceNo
+            invoiceNo: finalInvoiceNo,
+            invoice_id: invoiceId
         });
+    } catch (err) {
+        res.status(500).json({ status: 'error', message: err.message });
+    }
+});
+
+// DELETE /api/invoices/:invoice_no
+app.delete('/api/invoices/:invoice_no', async (req, res) => {
+    try {
+        const { invoice_no } = req.params;
+        await db.query('DELETE FROM sales_transactions WHERE invoice_no = $1', [invoice_no]);
+        await db.query('DELETE FROM invoices WHERE invoice_no = $1', [invoice_no]);
+        res.json({ status: 'success', message: `Invoice ${invoice_no} deleted successfully` });
     } catch (err) {
         res.status(500).json({ status: 'error', message: err.message });
     }

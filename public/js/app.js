@@ -1045,16 +1045,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
             tbody.innerHTML = data.map(b => `
                 <tr>
-                    <td><strong>${b.invoice_no}</strong></td>
+                    <td><strong style="color: #0284c7;">${b.invoice_no}</strong></td>
                     <td>${b.date}</td>
-                    <td>${b.customer_name}</td>
-                    <td>${b.address || '-'}</td>
-                    <td>${b.product_name}</td>
-                    <td class="text-right">${Number(b.qty).toLocaleString()}</td>
+                    <td>
+                        <strong>${b.customer_name || 'Customer'}</strong>
+                        ${b.customer_phone ? `<br><small class="text-muted"><i class="fa-solid fa-phone"></i> ${b.customer_phone}</small>` : ''}
+                    </td>
+                    <td>${b.employee_name || b.employee_code || '-'}</td>
+                    <td>
+                        <span style="font-size: 13px; color: #334155;">${b.products_summary || '-'}</span>
+                        <br><small class="badge" style="background:#e0f2fe; color:#0369a1; padding:2px 6px; border-radius:4px; font-size:11px;">${b.items_count || 1} Item(s)</small>
+                    </td>
                     <td class="text-right font-weight-500">৳ ${b.total_price_formatted}</td>
-                    <td class="text-right text-danger">৳ ${b.dues_formatted}</td>
-                    <td class="text-center">
-                        <button class="btn-tool" onclick="alert('Printing statement for Invoice: ${b.invoice_no}')"><i class="fa-solid fa-print"></i> Print</button>
+                    <td class="text-right text-success font-weight-500">৳ ${b.coll_cash_formatted}</td>
+                    <td class="text-right text-danger font-weight-500">৳ ${b.dues_formatted}</td>
+                    <td class="text-center" style="white-space: nowrap;">
+                        <button class="btn-tool" style="background: #f1f5f9; color: #0284c7; border: 1px solid #cbd5e1; margin-right: 4px; padding: 4px 8px; border-radius: 4px; cursor: pointer;" onclick="window.app.editInvoice('${b.invoice_no}')" title="Edit Bill / Add Products">
+                            <i class="fa-solid fa-pen-to-square"></i> Edit
+                        </button>
+                        <button class="btn-tool" style="background: #0f766e; color: #ffffff; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer;" onclick="window.app.printInvoice('${b.invoice_no}')" title="Print Tax Invoice">
+                            <i class="fa-solid fa-print"></i> Print
+                        </button>
                     </td>
                 </tr>
             `).join('');
@@ -1107,100 +1118,425 @@ document.addEventListener('DOMContentLoaded', () => {
     // ----------------------------------------------------------------------
     // 6. FORMS & MODAL SUBMISSIONS (Sales, Customer, Collection, Forecast, Product)
     // ----------------------------------------------------------------------
+    // ----------------------------------------------------------------------
+    // 6. MULTI-PRODUCT SALES INVOICE & CUSTOMER BILLING (CREATE & EDIT)
+    // ----------------------------------------------------------------------
+    let cachedEmployees = [];
+    let cachedCustomers = [];
+    let cachedProducts = [];
+
+    async function loadDropdownCaches() {
+        if (cachedEmployees.length === 0 || cachedCustomers.length === 0 || cachedProducts.length === 0) {
+            try {
+                const [empRes, custRes, prodRes] = await Promise.all([
+                    fetch('/api/employees'),
+                    fetch('/api/customers'),
+                    fetch('/api/products')
+                ]);
+                cachedEmployees = (await empRes.json()).data || [];
+                cachedCustomers = (await custRes.json()).data || [];
+                cachedProducts = (await prodRes.json()).data || [];
+            } catch (err) {
+                console.error('Error loading dropdown caches:', err);
+            }
+        }
+    }
+
+    function populateEmployeeAndCustomerSelects(selectedEmpId = null, selectedCustId = null) {
+        const empSel = document.getElementById('txEmployeeSelect');
+        const custSel = document.getElementById('txCustomerSelect');
+
+        empSel.innerHTML = cachedEmployees.length ? cachedEmployees.map(e => `
+            <option value="${e.id}" ${Number(e.id) === Number(selectedEmpId) ? 'selected' : ''}>${e.code} - ${e.name} (${e.designation})</option>
+        `).join('') : '<option value="">-- No Employees Found --</option>';
+
+        custSel.innerHTML = cachedCustomers.length ? cachedCustomers.map(c => `
+            <option value="${c.id}" ${Number(c.id) === Number(selectedCustId) ? 'selected' : ''}>${c.name} (${c.address || c.territory || 'Customer'})</option>
+        `).join('') : '<option value="">-- No Customers Found --</option>';
+    }
+
+    function addProductItemRow(existingItem = null) {
+        const tbody = document.getElementById('txItemsTableBody');
+        const rowId = 'row_' + Math.random().toString(36).substring(2, 9);
+
+        const tr = document.createElement('tr');
+        tr.id = rowId;
+
+        const defaultProd = cachedProducts.length > 0 ? cachedProducts[0] : null;
+        const initialProdId = existingItem ? existingItem.product_id : (defaultProd ? defaultProd.id : '');
+        const initialQty = existingItem ? existingItem.qty : 10;
+        const initialPrice = existingItem ? existingItem.unit_price : (defaultProd ? defaultProd.trade_price : 0);
+        const initialTotal = initialQty * initialPrice;
+
+        tr.innerHTML = `
+            <td style="padding: 6px;">
+                <select class="apex-input row-prod-select" style="margin: 0; font-size: 13px;">
+                    ${cachedProducts.map(p => `
+                        <option value="${p.id}" data-price="${p.trade_price}" ${Number(p.id) === Number(initialProdId) ? 'selected' : ''}>
+                            ${p.name} (৳${p.trade_price}, ${p.pack_size || 'Pack'})
+                        </option>
+                    `).join('')}
+                </select>
+            </td>
+            <td style="padding: 6px;">
+                <input type="number" class="apex-input text-right row-qty-input" min="1" value="${initialQty}" style="margin: 0; font-size: 13px;" required>
+            </td>
+            <td style="padding: 6px;">
+                <input type="number" class="apex-input text-right row-price-input" step="0.01" min="0" value="${initialPrice}" style="margin: 0; font-size: 13px;" required>
+            </td>
+            <td class="text-right row-total-text" style="padding: 6px; font-weight: 600; font-size: 13px; color: #0284c7;">
+                ৳ ${formatSouthAsianNumber(initialTotal)}
+            </td>
+            <td style="text-align: center; padding: 6px;">
+                <button type="button" class="btn-remove-row" style="background:none; border:none; color:#ef4444; font-size:16px; cursor:pointer; font-weight:bold;" title="Remove this product">✕</button>
+            </td>
+        `;
+
+        // Event bindings for row
+        const prodSelect = tr.querySelector('.row-prod-select');
+        const qtyInput = tr.querySelector('.row-qty-input');
+        const priceInput = tr.querySelector('.row-price-input');
+        const totalText = tr.querySelector('.row-total-text');
+        const removeBtn = tr.querySelector('.btn-remove-row');
+
+        function updateRowTotal() {
+            const q = Number(qtyInput.value) || 0;
+            const p = Number(priceInput.value) || 0;
+            totalText.textContent = `৳ ${formatSouthAsianNumber(q * p)}`;
+            calcInvoiceTotals();
+        }
+
+        prodSelect.addEventListener('change', () => {
+            const opt = prodSelect.selectedOptions[0];
+            if (opt && opt.dataset.price) {
+                priceInput.value = opt.dataset.price;
+            }
+            updateRowTotal();
+        });
+
+        qtyInput.addEventListener('input', updateRowTotal);
+        priceInput.addEventListener('input', updateRowTotal);
+
+        removeBtn.addEventListener('click', () => {
+            const allRows = tbody.querySelectorAll('tr');
+            if (allRows.length <= 1) {
+                showToast('At least one product item is required in the invoice', 'error');
+                return;
+            }
+            tr.remove();
+            calcInvoiceTotals();
+        });
+
+        tbody.appendChild(tr);
+        calcInvoiceTotals();
+    }
+
+    function calcInvoiceTotals() {
+        const tbody = document.getElementById('txItemsTableBody');
+        const rows = tbody.querySelectorAll('tr');
+
+        let subtotal = 0;
+        rows.forEach(tr => {
+            const q = Number(tr.querySelector('.row-qty-input')?.value || 0);
+            const p = Number(tr.querySelector('.row-price-input')?.value || 0);
+            subtotal += (q * p);
+        });
+
+        const discount = Number(document.getElementById('txDiscount').value) || 0;
+        const netPayable = Math.max(0, subtotal - discount);
+        const collCash = Number(document.getElementById('txCollCash').value) || 0;
+        const dues = Math.max(0, netPayable - collCash);
+
+        document.getElementById('txSubtotalDisplay').value = `৳ ${formatSouthAsianNumber(subtotal)}`;
+        document.getElementById('txNetPayableDisplay').value = `৳ ${formatSouthAsianNumber(netPayable)}`;
+        document.getElementById('txDuesDisplay').textContent = `৳ ${formatSouthAsianNumber(dues)}`;
+    }
+
+    document.getElementById('btnAddProductItem').addEventListener('click', () => {
+        addProductItemRow();
+    });
+
+    document.getElementById('txDiscount').addEventListener('input', calcInvoiceTotals);
+    document.getElementById('txCollCash').addEventListener('input', calcInvoiceTotals);
+
+    // Open Modal for BRAND NEW INVOICE
     async function openNewTx() {
         try {
-            const [empRes, custRes, prodRes] = await Promise.all([
-                fetch('/api/employees'),
-                fetch('/api/customers'),
-                fetch('/api/products')
-            ]);
-            const employees = (await empRes.json()).data || [];
-            const customers = (await custRes.json()).data || [];
-            const products = (await prodRes.json()).data || [];
+            await loadDropdownCaches();
+            document.getElementById('txEditingInvoiceNo').value = '';
+            document.getElementById('txModalTitle').textContent = 'New Sales Order & Invoice';
+            document.getElementById('txModalSubtitle').textContent = 'SOHA ENTERPRISE | Multi-Product Single Invoice';
+            document.getElementById('btnSubmitTxLabel').textContent = 'Generate Invoice';
+            document.getElementById('txInvoiceNoDisplay').value = '(Auto Generated)';
+            document.getElementById('txDate').value = new Date().toISOString().slice(0, 10);
+            document.getElementById('txDiscount').value = '0';
+            document.getElementById('txCollCash').value = '0';
+            document.getElementById('txNotes').value = '';
 
-            document.getElementById('txEmployeeSelect').innerHTML = employees.length ? employees.map(e => `
-                <option value="${e.id}">${e.code} - ${e.name} (${e.designation})</option>
-            `).join('') : '<option value="">-- No Employees / Officers yet --</option>';
+            populateEmployeeAndCustomerSelects();
 
-            document.getElementById('txCustomerSelect').innerHTML = customers.length ? customers.map(c => `
-                <option value="${c.id}">${c.name} (${c.address || c.territory})</option>
-            `).join('') : '<option value="">-- No Customers registered yet --</option>';
-
-            const prodSel = document.getElementById('txProductSelect');
-            prodSel.innerHTML = products.length ? products.map(p => `
-                <option value="${p.id}" data-price="${p.trade_price}">${p.name} - ৳${p.trade_price} (${p.pack_size})</option>
-            `).join('') : '<option value="">-- No Products registered yet --</option>';
-
-            if (products.length > 0) {
-                document.getElementById('txUnitPrice').value = products[0].trade_price;
-                calcOrderTotal();
-            } else {
-                document.getElementById('txUnitPrice').value = '0';
-                calcOrderTotal();
-            }
+            const tbody = document.getElementById('txItemsTableBody');
+            tbody.innerHTML = '';
+            addProductItemRow();
 
             addTxModal.classList.add('show');
         } catch (err) {
-            console.error(err);
+            console.error('Error opening new invoice modal:', err);
         }
     }
 
-    function calcOrderTotal() {
-        const q = Number(document.getElementById('txQty').value) || 0;
-        const p = Number(document.getElementById('txUnitPrice').value) || 0;
-        document.getElementById('txPreviewTotal').textContent = `৳ ${formatSouthAsianNumber(q * p)}`;
+    // Open Modal to EDIT AN EXISTING BILL / INVOICE & ADD NEW PRODUCTS
+    async function editInvoice(invoiceNo) {
+        try {
+            await loadDropdownCaches();
+            showToast(`Loading invoice ${invoiceNo}...`, 'info');
+
+            const res = await fetch(`/api/invoices/${encodeURIComponent(invoiceNo)}`);
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.message);
+
+            const inv = json.invoice;
+
+            document.getElementById('txEditingInvoiceNo').value = inv.invoice_no;
+            document.getElementById('txModalTitle').textContent = `Edit Customer Bill: ${inv.invoice_no}`;
+            document.getElementById('txModalSubtitle').textContent = `Add new products or modify quantities for ${inv.customer_name || 'Client'}`;
+            document.getElementById('btnSubmitTxLabel').textContent = 'Update Customer Bill';
+            document.getElementById('txInvoiceNoDisplay').value = inv.invoice_no;
+            document.getElementById('txDate').value = inv.date;
+            document.getElementById('txDiscount').value = inv.discount_amt || 0;
+            document.getElementById('txCollCash').value = inv.coll_cash || 0;
+            document.getElementById('txNotes').value = inv.notes || '';
+
+            populateEmployeeAndCustomerSelects(inv.employee_id, inv.customer_id);
+
+            const tbody = document.getElementById('txItemsTableBody');
+            tbody.innerHTML = '';
+
+            if (inv.items && inv.items.length > 0) {
+                inv.items.forEach(it => addProductItemRow(it));
+            } else {
+                addProductItemRow();
+            }
+
+            calcInvoiceTotals();
+            addTxModal.classList.add('show');
+        } catch (err) {
+            showToast(`Failed to load bill: ${err.message}`, 'error');
+        }
     }
 
-    document.getElementById('txQty').addEventListener('input', calcOrderTotal);
-    document.getElementById('txUnitPrice').addEventListener('input', calcOrderTotal);
-    document.getElementById('txProductSelect').addEventListener('change', (e) => {
-        const opt = e.target.selectedOptions[0];
-        if (opt && opt.dataset.price) {
-            document.getElementById('txUnitPrice').value = opt.dataset.price;
-            calcOrderTotal();
-        }
-    });
-
+    // Save or Update Invoice
     document.getElementById('btnSubmitTx').addEventListener('click', async () => {
         const empId = document.getElementById('txEmployeeSelect').value;
         const custId = document.getElementById('txCustomerSelect').value;
-        const prodId = document.getElementById('txProductSelect').value;
+        const date = document.getElementById('txDate').value;
+        const editingInvoiceNo = document.getElementById('txEditingInvoiceNo').value;
 
-        if (!empId || !custId || !prodId) {
-            showToast('Please ensure an Officer, Customer, and Product are selected', 'error');
+        if (!empId || !custId || !date) {
+            showToast('Please select Officer, Customer, and Date', 'error');
             return;
         }
 
+        const tbody = document.getElementById('txItemsTableBody');
+        const rows = tbody.querySelectorAll('tr');
+
+        if (rows.length === 0) {
+            showToast('Please add at least one product to the invoice', 'error');
+            return;
+        }
+
+        const items = [];
+        for (const tr of rows) {
+            const prodId = tr.querySelector('.row-prod-select')?.value;
+            const qty = Number(tr.querySelector('.row-qty-input')?.value);
+            const unitPrice = Number(tr.querySelector('.row-price-input')?.value);
+
+            if (!prodId || !qty || qty <= 0) {
+                showToast('Each product item must have a selected product and quantity greater than 0', 'error');
+                return;
+            }
+
+            items.push({
+                product_id: Number(prodId),
+                qty,
+                unit_price: unitPrice || 0,
+                bonus_qty: 0
+            });
+        }
+
         const payload = {
-            employee_id: empId,
-            customer_id: custId,
-            product_id: prodId,
-            date: document.getElementById('txDate').value,
-            qty: Number(document.getElementById('txQty').value),
-            unit_price: Number(document.getElementById('txUnitPrice').value),
-            bonus_qty: Number(document.getElementById('txBonusQty').value) || 0,
+            invoice_no: editingInvoiceNo || null,
+            date,
+            customer_id: Number(custId),
+            employee_id: Number(empId),
+            items,
             discount_amt: Number(document.getElementById('txDiscount').value) || 0,
-            dues: Number(document.getElementById('txDues').value) || 0,
             coll_cash: Number(document.getElementById('txCollCash').value) || 0,
-            coll_comm: Number(document.getElementById('txCollComm').value) || 0,
-            notes: document.getElementById('txNotes').value
+            notes: document.getElementById('txNotes').value || ''
         };
 
         try {
-            const res = await fetch('/api/transactions', {
+            const btn = document.getElementById('btnSubmitTx');
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Saving...`;
+
+            const res = await fetch('/api/invoices', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
             const result = await res.json();
+            btn.disabled = false;
+            btn.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> <span id="btnSubmitTxLabel">${editingInvoiceNo ? 'Update Customer Bill' : 'Save Invoice'}</span>`;
+
             if (!res.ok) throw new Error(result.message);
 
-            showToast(`Order ${result.invoiceNo} saved to SQLite!`, 'success');
+            showToast(result.message || 'Invoice processed successfully!', 'success');
             addTxModal.classList.remove('show');
             loadViewData(currentActiveView);
         } catch (err) {
+            document.getElementById('btnSubmitTx').disabled = false;
             showToast(`Error: ${err.message}`, 'error');
         }
+    });
+
+    // PRINT OFFICIAL TAX INVOICE
+    async function printInvoice(invoiceNo) {
+        try {
+            showToast(`Preparing invoice ${invoiceNo}...`, 'info');
+            const res = await fetch(`/api/invoices/${encodeURIComponent(invoiceNo)}`);
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.message);
+
+            const inv = json.invoice;
+            const items = inv.items || [];
+
+            const printArea = document.getElementById('invoicePrintArea');
+            printArea.innerHTML = `
+                <div style="font-family: 'Inter', system-ui, sans-serif; max-width: 740px; margin: 0 auto; color: #0f172a; line-height: 1.5;">
+                    <!-- Invoice Header -->
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0284c7; padding-bottom: 16px; margin-bottom: 20px;">
+                        <div>
+                            <h1 style="margin: 0; font-size: 26px; font-weight: 800; color: #0284c7; letter-spacing: -0.5px;">SOHA ENTERPRISE</h1>
+                            <p style="margin: 4px 0 0; font-size: 13px; color: #475569; font-weight: 600;">Quality Veterinary Medicines & Animal Nutrition</p>
+                            <p style="margin: 2px 0 0; font-size: 12px; color: #64748b;">Official Distributor & Agrovet Supply Chain | Bangladesh</p>
+                        </div>
+                        <div style="text-align: right;">
+                            <span style="background: #e0f2fe; color: #0369a1; font-weight: 800; font-size: 13px; padding: 4px 10px; border-radius: 4px; display: inline-block; margin-bottom: 6px;">TAX INVOICE / BILL</span>
+                            <h3 style="margin: 0; font-size: 18px; font-weight: 700; color: #0f172a;">${inv.invoice_no}</h3>
+                            <p style="margin: 4px 0 0; font-size: 13px; color: #64748b;">Date: <strong>${inv.date}</strong></p>
+                        </div>
+                    </div>
+
+                    <!-- Client & Officer Info Grid -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 18px; margin-bottom: 20px;">
+                        <div>
+                            <span style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #64748b; letter-spacing: 0.5px;">Bill To (Customer / Farm):</span>
+                            <h4 style="margin: 4px 0 2px; font-size: 16px; font-weight: 700; color: #0f172a;">${inv.customer_name || 'Valued Customer'}</h4>
+                            <p style="margin: 0; font-size: 13px; color: #334155;"><i class="fa-solid fa-location-dot" style="color:#0284c7;"></i> ${inv.address || inv.territory || 'Official Address'}</p>
+                            ${inv.customer_phone ? `<p style="margin: 2px 0 0; font-size: 13px; color: #334155;"><i class="fa-solid fa-phone" style="color:#0284c7;"></i> ${inv.customer_phone}</p>` : ''}
+                        </div>
+                        <div style="text-align: right;">
+                            <span style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #64748b; letter-spacing: 0.5px;">Issued By (TSO / Officer):</span>
+                            <h4 style="margin: 4px 0 2px; font-size: 15px; font-weight: 700; color: #0f172a;">${inv.employee_name || 'Official Officer'}</h4>
+                            <p style="margin: 0; font-size: 13px; color: #334155;">Officer Code: <strong>${inv.employee_code || '-'}</strong></p>
+                            <p style="margin: 2px 0 0; font-size: 12px; color: #64748b;">Territory: ${inv.territory || 'Designated Region'}</p>
+                        </div>
+                    </div>
+
+                    <!-- Products Table -->
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 13px;">
+                        <thead>
+                            <tr style="background: #0284c7; color: white; text-align: left;">
+                                <th style="padding: 10px 12px; border-radius: 6px 0 0 0;">#</th>
+                                <th style="padding: 10px 12px;">Product Description</th>
+                                <th style="padding: 10px 12px; text-align: center;">Pack Size</th>
+                                <th style="padding: 10px 12px; text-align: right;">Quantity</th>
+                                <th style="padding: 10px 12px; text-align: right;">Unit Rate (৳)</th>
+                                <th style="padding: 10px 12px; text-align: right; border-radius: 0 6px 0 0;">Total (৳)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${items.map((it, idx) => `
+                                <tr style="border-bottom: 1px solid #e2e8f0; ${idx % 2 === 1 ? 'background:#f8fafc;' : ''}">
+                                    <td style="padding: 10px 12px; color: #64748b;">${idx + 1}</td>
+                                    <td style="padding: 10px 12px;">
+                                        <strong style="color:#0f172a;">${it.product_name || 'Product Item'}</strong>
+                                        ${it.product_code ? `<br><small style="color:#64748b;">Code: ${it.product_code}</small>` : ''}
+                                    </td>
+                                    <td style="padding: 10px 12px; text-align: center; color: #475569;">${it.pack_size || '-'}</td>
+                                    <td style="padding: 10px 12px; text-align: right; font-weight: 600;">${Number(it.qty).toLocaleString()}</td>
+                                    <td style="padding: 10px 12px; text-align: right;">৳ ${Number(it.unit_price).toFixed(2)}</td>
+                                    <td style="padding: 10px 12px; text-align: right; font-weight: 700; color: #0284c7;">৳ ${formatSouthAsianNumber(it.total_price)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+
+                    <!-- Financial Summary Box -->
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
+                        <div style="max-width: 320px; font-size: 12px; color: #64748b; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px;">
+                            <strong style="color:#0f172a; display:block; margin-bottom: 4px;">Terms & Conditions:</strong>
+                            1. Received the above mentioned goods in good condition.<br>
+                            2. Claims regarding quality/quantity must be reported within 48 hours.<br>
+                            ${inv.notes ? `<div style="margin-top: 6px; color:#0369a1;"><strong>Note:</strong> ${inv.notes}</div>` : ''}
+                        </div>
+
+                        <div style="width: 300px;">
+                            <div style="display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; color: #334155;">
+                                <span>Subtotal (Items Sum):</span>
+                                <strong>৳ ${inv.subtotal_formatted || '0'}</strong>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; color: #334155;">
+                                <span>Special Discount:</span>
+                                <span style="color:#e11d48;">- ৳ ${inv.discount_amt_formatted || '0'}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; padding: 6px 0; font-size: 15px; font-weight: 800; color: #0f172a; border-top: 2px solid #e2e8f0; border-bottom: 2px solid #e2e8f0; margin: 4px 0;">
+                                <span>Net Total Payable:</span>
+                                <span style="color:#0284c7;">৳ ${inv.total_price_formatted || '0'}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; color: #15803d; font-weight: 600;">
+                                <span>Amount Paid (Cash):</span>
+                                <span>৳ ${inv.coll_cash_formatted || '0'}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; padding: 6px 10px; font-size: 15px; font-weight: 800; background: #fff1f2; color: #e11d48; border-radius: 6px; margin-top: 6px;">
+                                <span>Balance Dues:</span>
+                                <span>৳ ${inv.dues_formatted || '0'}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Signatures -->
+                    <div style="display: flex; justify-content: space-between; margin-top: 60px; padding-top: 10px;">
+                        <div style="text-align: center; width: 180px; border-top: 1px dashed #94a3b8; padding-top: 6px; font-size: 12px; color: #475569;">
+                            Customer Signature
+                        </div>
+                        <div style="text-align: center; width: 180px; border-top: 1px dashed #94a3b8; padding-top: 6px; font-size: 12px; color: #475569;">
+                            Prepared By (TSO)
+                        </div>
+                        <div style="text-align: center; width: 180px; border-top: 1px solid #0284c7; padding-top: 6px; font-size: 12px; font-weight: 700; color: #0284c7;">
+                            Authorized Signature<br><small style="font-size:10px; color:#64748b;">SOHA ENTERPRISE</small>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            const printModal = document.getElementById('invoicePrintModal');
+            printModal.classList.add('show');
+        } catch (err) {
+            showToast(`Error preparing invoice: ${err.message}`, 'error');
+        }
+    }
+
+    // Modal Close Listeners for Invoice Print
+    document.getElementById('btnCloseInvoicePrintModal').addEventListener('click', () => {
+        document.getElementById('invoicePrintModal').classList.remove('show');
+    });
+    document.getElementById('btnCloseInvoicePrintBtn').addEventListener('click', () => {
+        document.getElementById('invoicePrintModal').classList.remove('show');
+    });
+    document.getElementById('btnTriggerPrint').addEventListener('click', () => {
+        window.print();
     });
 
     function openNewCustomerModal() {
@@ -1447,6 +1783,8 @@ document.addEventListener('DOMContentLoaded', () => {
         switchView,
         openDetails,
         openNewTx,
+        editInvoice,
+        printInvoice,
         openNewCustomerModal,
         openCollectionModal,
         toggleUserStatus

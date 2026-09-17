@@ -798,13 +798,13 @@
                                 <tr>
                                     <th>Invoice No</th>
                                     <th>Date</th>
-                                    <th>Customer</th>
-                                    <th>Billing Address</th>
-                                    <th>Item</th>
-                                    <th class="text-right">Quantity</th>
-                                    <th class="text-right">Bill Amount</th>
-                                    <th class="text-right">Due Balance</th>
-                                    <th class="text-center">Action</th>
+                                    <th>Customer / Client</th>
+                                    <th>Officer (TSO)</th>
+                                    <th>Products in Bill</th>
+                                    <th class="text-right">Total Bill (৳)</th>
+                                    <th class="text-right">Paid (৳)</th>
+                                    <th class="text-right">Due Balance (৳)</th>
+                                    <th class="text-center" style="min-width: 140px;">Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="billsTableBody"></tbody>
@@ -928,75 +928,126 @@
         </div>
     </div>
 
-    <!-- Add New Transaction Modal -->
+    <!-- Add / Edit Sales Order & Invoice Modal (Multi-Product Supported) -->
     <div class="modal-overlay" id="addTxModal">
-        <div class="modal-card">
+        <div class="modal-card" style="max-width: 820px; width: 95%; max-height: 90vh; display: flex; flex-direction: column;">
             <header class="modal-header">
                 <div class="modal-title-box">
-                    <i class="fa-solid fa-plus-circle modal-icon"></i>
+                    <i class="fa-solid fa-file-invoice-dollar modal-icon" style="color: #0284c7;"></i>
                     <div>
-                        <h3 class="modal-title">New Sales Order</h3>
-                        <p class="modal-subtitle">Direct write to SOHA ENTERPRISE SQLite DB</p>
+                        <h3 class="modal-title" id="txModalTitle">Sales Invoice & Customer Billing</h3>
+                        <p class="modal-subtitle" id="txModalSubtitle">SOHA ENTERPRISE | Multi-Product Single Invoice</p>
                     </div>
                 </div>
                 <button class="btn-close-modal" id="btnCloseAddModal">&times;</button>
             </header>
-            <form id="newTxForm" class="modal-body form-grid">
-                <div class="form-group full-width">
+            <form id="newTxForm" class="modal-body form-grid" style="overflow-y: auto; max-height: calc(90vh - 140px); padding: 18px;">
+                <input type="hidden" id="txEditingInvoiceNo" value="">
+                
+                <div class="form-group">
                     <label class="form-label">Sales Officer (TSO) *</label>
                     <select id="txEmployeeSelect" class="apex-input" required></select>
                 </div>
-                <div class="form-group full-width">
+                <div class="form-group">
                     <label class="form-label">Customer / Farm / Dealer *</label>
                     <select id="txCustomerSelect" class="apex-input" required></select>
                 </div>
+                <div class="form-group">
+                    <label class="form-label">Invoice Date *</label>
+                    <input type="date" id="txDate" class="apex-input" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Invoice No</label>
+                    <input type="text" id="txInvoiceNoDisplay" class="apex-input" placeholder="(Auto Generated)" readonly style="background: #f8fafc; font-weight: 700; color: #0284c7;">
+                </div>
+
+                <!-- Multi-Product Table in Same Invoice -->
+                <div class="form-group full-width" style="margin-top: 6px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <label class="form-label" style="font-weight: 700; margin: 0; font-size: 14px; color: #0f172a;">
+                            <i class="fa-solid fa-boxes-stacked" style="color: #0284c7; margin-right: 6px;"></i> Products in this Bill / Invoice:
+                        </label>
+                        <button type="button" id="btnAddProductItem" class="btn-tool" style="background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; padding: 6px 14px; font-weight: 600; border-radius: 6px; cursor: pointer;">
+                            <i class="fa-solid fa-plus"></i> + Add Another Product
+                        </button>
+                    </div>
+                    
+                    <div class="table-responsive" style="border: 1px solid #cbd5e1; border-radius: 8px; background: #ffffff; max-height: 220px; overflow-y: auto;">
+                        <table class="apex-grid" style="margin: 0; font-size: 13px;">
+                            <thead>
+                                <tr style="background: #f8fafc;">
+                                    <th style="width: 42%;">Select Product *</th>
+                                    <th style="width: 16%;" class="text-right">Qty *</th>
+                                    <th style="width: 20%;" class="text-right">Unit Price (৳) *</th>
+                                    <th style="width: 17%;" class="text-right">Total (৳)</th>
+                                    <th style="width: 5%; text-align: center;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="txItemsTableBody">
+                                <!-- Dynamically populated rows -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Calculations -->
+                <div class="form-group">
+                    <label class="form-label">Subtotal (Items Sum)</label>
+                    <input type="text" id="txSubtotalDisplay" class="apex-input" readonly style="background: #f8fafc; font-weight: 700;" value="৳ 0">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Discount Amount (৳)</label>
+                    <input type="number" id="txDiscount" class="apex-input" min="0" value="0" placeholder="0">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Net Payable Bill (৳)</label>
+                    <input type="text" id="txNetPayableDisplay" class="apex-input" readonly style="background: #f0fdf4; font-weight: 800; color: #15803d;" value="৳ 0">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Paid / Collected Cash (৳)</label>
+                    <input type="number" id="txCollCash" class="apex-input" min="0" value="0" placeholder="0">
+                </div>
                 <div class="form-group full-width">
-                    <label class="form-label">Product *</label>
-                    <select id="txProductSelect" class="apex-input" required></select>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Date *</label>
-                    <input type="date" id="txDate" class="apex-input" value="2026-08-25" required>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Quantity *</label>
-                    <input type="number" id="txQty" class="apex-input" min="1" value="100" required>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Unit Price (Tk) *</label>
-                    <input type="number" id="txUnitPrice" class="apex-input" step="0.01" value="650" required>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Bonus Qty</label>
-                    <input type="number" id="txBonusQty" class="apex-input" min="0" value="0">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Discount Amt (Tk)</label>
-                    <input type="number" id="txDiscount" class="apex-input" min="0" value="0">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Dues (Tk)</label>
-                    <input type="number" id="txDues" class="apex-input" min="0" value="0">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Collection Cash (Tk)</label>
-                    <input type="number" id="txCollCash" class="apex-input" min="0" value="0">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Collection Comm (Tk)</label>
-                    <input type="number" id="txCollComm" class="apex-input" min="0" value="0">
+                    <div style="display: flex; justify-content: space-between; align-items: center; background: #fff1f2; border: 1px solid #fecdd3; border-radius: 8px; padding: 10px 16px;">
+                        <span style="font-weight: 700; color: #9f1239; font-size: 14px;">Remaining Dues for this Bill:</span>
+                        <strong id="txDuesDisplay" style="font-size: 20px; color: #e11d48;">৳ 0</strong>
+                    </div>
                 </div>
                 <div class="form-group full-width">
                     <label class="form-label">Notes / Remarks</label>
-                    <input type="text" id="txNotes" class="apex-input" placeholder="Invoice details">
-                </div>
-                <div class="form-group full-width total-preview-box">
-                    <span>Order Amount: <strong id="txPreviewTotal">৳ 65,000</strong></span>
+                    <input type="text" id="txNotes" class="apex-input" placeholder="Delivery details, payment terms, or client instructions...">
                 </div>
             </form>
-            <footer class="modal-footer">
+            <footer class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; padding: 12px 18px; border-top: 1px solid #e2e8f0; background: #f8fafc;">
                 <button type="button" class="btn-secondary" id="btnCancelAdd">Cancel</button>
-                <button type="button" class="btn-preview" id="btnSubmitTx">Save Order</button>
+                <button type="button" class="btn-preview" id="btnSubmitTx" style="background: #0284c7; color: #ffffff; padding: 9px 24px; font-weight: 700; border-radius: 6px; border: none; cursor: pointer;">
+                    <i class="fa-solid fa-floppy-disk"></i> <span id="btnSubmitTxLabel">Save Invoice</span>
+                </button>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Official Printable Invoice Modal -->
+    <div class="modal-overlay" id="invoicePrintModal">
+        <div class="modal-card" style="max-width: 820px; width: 95%; max-height: 92vh; display: flex; flex-direction: column;">
+            <header class="modal-header" style="background: #0f172a; color: white;">
+                <div class="modal-title-box">
+                    <i class="fa-solid fa-receipt modal-icon" style="color: #38bdf8;"></i>
+                    <div>
+                        <h3 class="modal-title" style="color: white;">SOHA ENTERPRISE - Official Invoice</h3>
+                        <p class="modal-subtitle" style="color: #94a3b8;">Tax Invoice & Delivery Statement</p>
+                    </div>
+                </div>
+                <button class="btn-close-modal" id="btnCloseInvoicePrintModal" style="color: white;">&times;</button>
+            </header>
+            <div class="modal-body" id="invoicePrintArea" style="overflow-y: auto; padding: 24px; background: #ffffff; color: #0f172a;">
+                <!-- Generated dynamically by JS -->
+            </div>
+            <footer class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; padding: 12px 20px; border-top: 1px solid #e2e8f0; background: #f8fafc;">
+                <button type="button" class="btn-secondary" id="btnCloseInvoicePrintBtn">Close</button>
+                <button type="button" class="btn-preview" id="btnTriggerPrint" style="background: #0f766e; color: white; padding: 8px 22px; font-weight: 700; border-radius: 6px; border: none; cursor: pointer;">
+                    <i class="fa-solid fa-print"></i> Print / Save PDF
+                </button>
             </footer>
         </div>
     </div>

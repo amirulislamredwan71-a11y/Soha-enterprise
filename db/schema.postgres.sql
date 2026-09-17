@@ -1,4 +1,4 @@
-﻿-- db/schema.postgres.sql - SOHA ENTERPRISE Relational PostgreSQL Schema for Supabase
+-- db/schema.postgres.sql - SOHA ENTERPRISE Relational PostgreSQL Schema for Supabase
 
 -- 1. Employees (Sales Officers & Territory Managers)
 CREATE TABLE IF NOT EXISTS employees (
@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS products (
 -- 6. Sales Transactions (Invoices)
 CREATE TABLE IF NOT EXISTS sales_transactions (
     id SERIAL PRIMARY KEY,
-    invoice_no VARCHAR(100) UNIQUE NOT NULL,
+    invoice_no VARCHAR(100) NOT NULL,
     date DATE NOT NULL,
     employee_id INTEGER REFERENCES employees(id) ON DELETE SET NULL,
     customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL,
