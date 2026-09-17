@@ -1,0 +1,1147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SOHA ENTERPRISE - Enterprise ERP Dashboard</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- ============================================================ -->
+    <!-- LOGIN SCREEN (Displays when not authenticated) -->
+    <!-- ============================================================ -->
+    <div class="login-overlay" id="loginOverlay">
+        <div class="login-card">
+            <div class="login-header">
+                <div class="brand-badge-large">
+                    <svg viewBox="0 0 100 100" class="login-brand-svg">
+                        <circle cx="50" cy="50" r="46" fill="#ffffff" />
+                        <path d="M50 82 V44" stroke="#15803d" stroke-width="7" stroke-linecap="round"/>
+                        <path d="M50 55 C38 42 22 45 20 62 C34 64 46 56 50 55 Z" fill="#16a34a"/>
+                        <path d="M50 48 C62 34 78 37 80 54 C66 57 54 49 50 48 Z" fill="#22c55e"/>
+                    </svg>
+                    <div class="brand-text-large">
+                        <h2>SOHA ENTERPRISE</h2>
+                        <span>Enterprise ERP System • Bangladesh</span>
+                    </div>
+                </div>
+                <p class="login-subtitle">Sign in to your authorized account</p>
+            </div>
+
+            <form id="loginForm" class="login-body">
+                <div class="alert-error" id="loginAlert" style="display: none;"></div>
+
+                <div class="form-group full-width">
+                    <label class="form-label" for="loginUsername">Username</label>
+                    <div class="input-with-icon">
+                        <input type="text" id="loginUsername" class="apex-input" placeholder="Enter your username" required autofocus>
+                        <i class="fa-solid fa-user input-icon"></i>
+                    </div>
+                </div>
+
+                <div class="form-group full-width">
+                    <label class="form-label" for="loginPassword">Password</label>
+                    <div class="input-with-icon">
+                        <input type="password" id="loginPassword" class="apex-input" placeholder="••••••••" required>
+                        <i class="fa-solid fa-lock input-icon"></i>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-login" id="btnLoginSubmit">
+                    <i class="fa-solid fa-arrow-right-to-bracket"></i> Sign In to SOHA ERP
+                </button>
+            </form>
+
+            <div class="login-footer">
+                <span>SOHA ENTERPRISE &copy; 2026 • Release 1.1</span>
+                <span class="secure-tag"><i class="fa-solid fa-lock text-green"></i> SQLite PBKDF2 Encrypted</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- MAIN APPLICATION (Protected by Session) -->
+    <!-- ============================================================ -->
+    <!-- Top Navigation Bar -->
+    <header class="apex-header">
+        <div class="header-left">
+            <button id="sidebarToggle" class="btn-icon hamburger" title="Toggle Navigation Menu">
+                <i class="fa-solid fa-bars"></i>
+            </button>
+            <div class="brand-box">
+                <div class="brand-badge">
+                    <svg viewBox="0 0 100 100" class="brand-sprout-svg">
+                        <circle cx="50" cy="50" r="46" fill="#ffffff" />
+                        <path d="M50 82 V44" stroke="#15803d" stroke-width="7" stroke-linecap="round"/>
+                        <path d="M50 55 C38 42 22 45 20 62 C34 64 46 56 50 55 Z" fill="#16a34a"/>
+                        <path d="M50 48 C62 34 78 37 80 54 C66 57 54 49 50 48 Z" fill="#22c55e"/>
+                    </svg>
+                    <div class="brand-badge-text">
+                        <span class="badge-title">SOHA</span>
+                        <span class="badge-sub">ENTERPRISE</span>
+                        <span class="badge-loc">Bangladesh</span>
+                    </div>
+                </div>
+                <h1 class="brand-title">SOHA ENTERPRISE</h1>
+            </div>
+        </div>
+
+        <div class="header-right">
+            <button class="btn-action-outline" id="btnInstallApp" title="Install Web App">
+                <i class="fa-solid fa-cloud-arrow-down"></i>
+                <span class="hide-mobile">Install App</span>
+            </button>
+            <div class="user-dropdown-container">
+                <button class="user-menu-btn" id="userMenuBtn">
+                    <span id="topUserRoleBadge" class="badge-role-pill">ADMIN</span>
+                    <span id="userPhoneDisplay">Admin</span>
+                    <i class="fa-solid fa-chevron-down chevron-icon"></i>
+                </button>
+                <div class="user-dropdown-menu" id="userDropdownMenu">
+                    <div class="user-dropdown-header">
+                        <div class="user-avatar"><i class="fa-solid fa-user-tie"></i></div>
+                        <div class="user-info">
+                            <strong id="dropdownFullName">SOHA Master Admin</strong>
+                            <small id="dropdownRoleDesig">Role: Main Administrator</small>
+                            <span class="user-phone" id="dropdownPhone">admin</span>
+                        </div>
+                    </div>
+                    <hr>
+                    <!-- Main Admin Only: Sub-Account Management -->
+                    <div id="adminMenuSection">
+                        <button class="dropdown-item text-primary" id="btnOpenSubAccounts">
+                            <i class="fa-solid fa-users-gear"></i> <strong>Manage Sub-Accounts</strong>
+                        </button>
+                        <button class="dropdown-item text-green" id="btnOpenCreateSubUser">
+                            <i class="fa-solid fa-user-plus"></i> + Create New Sub-Account
+                        </button>
+                        <hr>
+                    </div>
+                    <button class="dropdown-item" id="btnOpenNewTx">
+                        <i class="fa-solid fa-cart-plus"></i> New Sales Order
+                    </button>
+                    <button class="dropdown-item" id="btnOpenNewColl">
+                        <i class="fa-solid fa-money-bill-wave"></i> New Collection Voucher
+                    </button>
+                    <button class="dropdown-item" id="btnOpenNewCust">
+                        <i class="fa-solid fa-user-plus"></i> Add New Customer
+                    </button>
+                    <hr>
+                    <button class="dropdown-item text-danger" id="btnLogout">
+                        <i class="fa-solid fa-right-from-bracket"></i> <strong>Sign Out / Logout</strong>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Body Layout -->
+    <div class="apex-body-container">
+        <!-- Sidebar Navigation Drawer -->
+        <aside class="apex-sidebar" id="apexSidebar">
+            <nav class="sidebar-nav">
+                <ul class="nav-list">
+                    <li class="nav-item">
+                        <a href="javascript:void(0)" class="nav-link" data-view="home">
+                            <i class="fa-solid fa-house nav-icon"></i>
+                            <span class="nav-label">Home</span>
+                        </a>
+                    </li>
+                    <li class="nav-item has-sub">
+                        <a href="javascript:void(0)" class="nav-link" data-toggle="sub">
+                            <i class="fa-regular fa-file-lines nav-icon"></i>
+                            <span class="nav-label">Master Setup</span>
+                            <i class="fa-solid fa-chevron-right nav-arrow"></i>
+                        </a>
+                        <ul class="sub-nav-list">
+                            <li><a href="javascript:void(0)" class="sub-nav-link" data-view="master-setup">Products Catalog</a></li>
+                            <li id="navSubAccountsLi"><a href="javascript:void(0)" class="sub-nav-link" data-view="sub-accounts"><i class="fa-solid fa-users-gear"></i> Sub-Accounts (RBAC)</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-item has-sub">
+                        <a href="javascript:void(0)" class="nav-link" data-view="sales">
+                            <i class="fa-regular fa-eye nav-icon"></i>
+                            <span class="nav-label">Sales</span>
+                            <i class="fa-solid fa-chevron-right nav-arrow"></i>
+                        </a>
+                    </li>
+                    <li class="nav-item has-sub">
+                        <a href="javascript:void(0)" class="nav-link" data-view="collection">
+                            <i class="fa-solid fa-hand-holding-dollar nav-icon"></i>
+                            <span class="nav-label">Collection</span>
+                            <i class="fa-solid fa-chevron-right nav-arrow"></i>
+                        </a>
+                    </li>
+                    <li class="nav-item has-sub">
+                        <a href="javascript:void(0)" class="nav-link" data-view="bills">
+                            <i class="fa-solid fa-landmark nav-icon"></i>
+                            <span class="nav-label">Bill Management</span>
+                            <i class="fa-solid fa-chevron-right nav-arrow"></i>
+                        </a>
+                    </li>
+                    <!-- Business Submenu (Expanded by default) -->
+                    <li class="nav-item has-sub open" id="menuBusiness">
+                        <a href="javascript:void(0)" class="nav-link" data-toggle="sub">
+                            <i class="fa-solid fa-chart-simple nav-icon"></i>
+                            <span class="nav-label">Business</span>
+                            <i class="fa-solid fa-chevron-down nav-arrow"></i>
+                        </a>
+                        <ul class="sub-nav-list">
+                            <li><a href="javascript:void(0)" class="sub-nav-link" data-view="forecast-review">Forecast Review</a></li>
+                            <li><a href="javascript:void(0)" class="sub-nav-link" data-view="forecast-entry">Forecast Entry</a></li>
+                            <li><a href="javascript:void(0)" class="sub-nav-link" data-view="forecast-report">Forecast Report</a></li>
+                            <li><a href="javascript:void(0)" class="sub-nav-link" data-view="my-customers">My Customers</a></li>
+                            <li><a href="javascript:void(0)" class="sub-nav-link active" data-view="my-business"><i class="fa-solid fa-check check-bullet"></i> My Business</a></li>
+                            <li><a href="javascript:void(0)" class="sub-nav-link" data-view="comparison">Comparision Business</a></li>
+                            <li><a href="javascript:void(0)" class="sub-nav-link" data-view="customer-product-sell">Customer Wise Product Sell</a></li>
+                            <li><a href="javascript:void(0)" class="sub-nav-link" data-view="top-ten">MTD/YTD SALE And Top Ten Pro...</a></li>
+                            <li><a href="javascript:void(0)" class="sub-nav-link" data-view="ageing">Ageing Report</a></li>
+                            <li><a href="javascript:void(0)" class="sub-nav-link" data-view="outstanding">Outstanding</a></li>
+                            <li><a href="javascript:void(0)" class="sub-nav-link" data-view="product-customer-sale">Product Wise Customer Sale</a></li>
+                            <li><a href="javascript:void(0)" class="sub-nav-link" data-view="outstanding-confirmation">Outstanding Confirmation</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </nav>
+        </aside>
+
+        <!-- Sidebar Mobile Backdrop -->
+        <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+        <!-- Main Content Area -->
+        <main class="apex-content">
+            <!-- Green Alert Banner -->
+            <section class="banner-green">
+                <span class="banner-text" id="bannerOfficerTitle">Name & Code: --</span>
+            </section>
+
+            <!-- ============================================================ -->
+            <!-- VIEW 1: MY BUSINESS (Core APEX Grid Matching Screenshots) -->
+            <!-- ============================================================ -->
+            <div class="view-panel active" id="view-my-business">
+                <!-- Filter Card -->
+                <section class="card filter-card">
+                    <div class="filter-row">
+                        <div class="filter-group">
+                            <label for="dateFrom" class="filter-label">Date From</label>
+                            <div class="input-with-icon">
+                                <input type="date" id="dateFrom" class="apex-input" value="2026-01-01">
+                                <i class="fa-regular fa-calendar-days input-icon"></i>
+                            </div>
+                        </div>
+
+                        <div class="filter-group">
+                            <label for="dateTo" class="filter-label">Date To</label>
+                            <div class="input-with-icon">
+                                <input type="date" id="dateTo" class="apex-input" value="2026-08-29">
+                                <i class="fa-regular fa-calendar-days input-icon"></i>
+                            </div>
+                        </div>
+
+                        <div class="filter-actions">
+                            <button type="button" class="btn-preview" id="btnPreview">
+                                Preview
+                            </button>
+                            <button type="button" class="btn-add-quick" id="btnQuickAdd">
+                                <i class="fa-solid fa-plus"></i> New Entry
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="filter-meta">
+                        <span class="meta-tag"><i class="fa-solid fa-database"></i> Source: SOHA ENTERPRISE SQLite DB</span>
+                        <span class="meta-tag" id="queryStatusTag"><i class="fa-solid fa-circle-check text-green"></i> Live Synced</span>
+                        <span class="meta-tag" id="dateRangeDisplay">Range: 2026-01-01 to 2026-08-29</span>
+                    </div>
+                </section>
+
+                <!-- "My Business" Report Section -->
+                <section class="card report-card">
+                    <header class="report-header">
+                        <h2 class="report-title">My Business</h2>
+                        <div class="report-tools">
+                            <button class="btn-tool" id="btnExportCsv" title="Export CSV"><i class="fa-solid fa-file-excel"></i> Export</button>
+                            <button class="btn-tool" id="btnRefresh" title="Refresh"><i class="fa-solid fa-arrows-rotate"></i></button>
+                        </div>
+                    </header>
+
+                    <div class="table-responsive">
+                        <table class="apex-grid" id="businessTable">
+                            <thead>
+                                <tr>
+                                    <th class="col-page-link">Page Link</th>
+                                    <th class="col-code">Code</th>
+                                    <th class="col-name">Name</th>
+                                    <th class="col-desig">Desig</th>
+                                    <th class="col-qty text-right">Qty</th>
+                                    <th class="col-price text-right">Price</th>
+                                    <th class="col-bonus text-center">Bonus Qty</th>
+                                    <th class="col-disc text-right">Disc Amt</th>
+                                    <th class="col-dues text-right">Dues</th>
+                                    <th class="col-cash text-right">Coll Cash</th>
+                                    <th class="col-comm text-right sortable-col">Coll Comm <span class="sort-icon">↓F</span></th>
+                                </tr>
+                            </thead>
+                            <tbody id="businessTableBody"></tbody>
+                            <tfoot id="businessTableFoot"></tfoot>
+                        </table>
+                    </div>
+                </section>
+            </div>
+
+            <!-- ============================================================ -->
+            <!-- VIEW: SUB-ACCOUNTS MANAGEMENT (MAIN ADMIN ONLY) -->
+            <!-- ============================================================ -->
+            <div class="view-panel" id="view-sub-accounts">
+                <section class="card filter-card" style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <span class="meta-tag"><i class="fa-solid fa-shield-halved text-primary"></i> <strong>Main Admin Control: Sub-Account Access & Roles</strong></span>
+                        <div style="font-size: 11px; color: #64748b; margin-top: 4px;">Main Admin can create new sub-accounts (Sub-Admin / TSO Field Officers) with custom permissions.</div>
+                    </div>
+                    <button class="btn-preview" id="btnOpenCreateSubUserDirect"><i class="fa-solid fa-user-plus"></i> + Create Sub-Account</button>
+                </section>
+                <section class="card report-card">
+                    <header class="report-header">
+                        <h2 class="report-title">Sub-Accounts & User Directory (SQLite)</h2>
+                    </header>
+                    <div class="table-responsive">
+                        <table class="apex-grid">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Username</th>
+                                    <th>Full Name</th>
+                                    <th>Role / Access Level</th>
+                                    <th>Phone</th>
+                                    <th>Associated Officer</th>
+                                    <th>Status</th>
+                                    <th>Created At</th>
+                                    <th class="text-center">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="subAccountsTableBody"></tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+
+            <!-- ============================================================ -->
+            <!-- VIEW 2: HOME (Executive Dashboard) -->
+            <!-- ============================================================ -->
+            <div class="view-panel" id="view-home">
+                <div class="kpi-grid">
+                    <div class="kpi-card">
+                        <div class="kpi-icon bg-blue"><i class="fa-solid fa-sack-dollar"></i></div>
+                        <div class="kpi-details">
+                            <span class="kpi-label">YTD Total Sales</span>
+                            <h3 class="kpi-val" id="kpiYtdSales">৳ 25,67,353</h3>
+                            <small class="kpi-sub">Total Units Sold: <strong id="kpiYtdQty">4,166</strong></small>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-icon bg-green"><i class="fa-solid fa-calendar-check"></i></div>
+                        <div class="kpi-details">
+                            <span class="kpi-label">August MTD Sales</span>
+                            <h3 class="kpi-val" id="kpiMtdSales">৳ 2,48,453</h3>
+                            <small class="kpi-sub">Current Month Status: On Track</small>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-icon bg-amber"><i class="fa-solid fa-hand-holding-dollar"></i></div>
+                        <div class="kpi-details">
+                            <span class="kpi-label">Total Cash Collected</span>
+                            <h3 class="kpi-val" id="kpiTotalCollected">৳ 12,68,227</h3>
+                            <small class="kpi-sub">Recovery Ratio: ~49.4%</small>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-icon bg-red"><i class="fa-solid fa-file-invoice-dollar"></i></div>
+                        <div class="kpi-details">
+                            <span class="kpi-label">Total Outstanding Dues</span>
+                            <h3 class="kpi-val" id="kpiTotalDues">৳ 47,20,577</h3>
+                            <small class="kpi-sub">Active Accounts: <strong id="kpiCustCount">5 Dealers/Farms</strong></small>
+                        </div>
+                    </div>
+                </div>
+
+                <section class="card report-card">
+                    <header class="report-header">
+                        <h2 class="report-title">Recent Invoices & Orders (Live SQLite Feed)</h2>
+                        <button class="btn-tool" onclick="window.app.switchView('sales')"><i class="fa-solid fa-plus"></i> New Order</button>
+                    </header>
+                    <div class="table-responsive">
+                        <table class="apex-grid">
+                            <thead>
+                                <tr>
+                                    <th>Invoice No</th>
+                                    <th>Date</th>
+                                    <th>Customer</th>
+                                    <th>Product</th>
+                                    <th class="text-right">Qty</th>
+                                    <th class="text-right">Total (Tk)</th>
+                                    <th class="text-right">Dues (Tk)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="homeRecentOrdersBody"></tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+
+            <!-- VIEW 3: FORECAST REVIEW -->
+            <div class="view-panel" id="view-forecast-review">
+                <section class="card filter-card">
+                    <div class="filter-row">
+                        <div class="filter-group">
+                            <label class="filter-label">Month</label>
+                            <input type="month" id="forecastReviewMonth" class="apex-input" value="2026-08">
+                        </div>
+                        <div class="filter-actions">
+                            <button type="button" class="btn-preview" id="btnFilterForecastReview">Review Targets</button>
+                            <button type="button" class="btn-add-quick" onclick="window.app.switchView('forecast-entry')"><i class="fa-solid fa-plus"></i> Add Target</button>
+                        </div>
+                    </div>
+                </section>
+                <section class="card report-card">
+                    <header class="report-header">
+                        <h2 class="report-title">Forecast Review (Target vs Actual Achievement)</h2>
+                    </header>
+                    <div class="table-responsive">
+                        <table class="apex-grid">
+                            <thead>
+                                <tr>
+                                    <th>Product Code</th>
+                                    <th>Product Name</th>
+                                    <th class="text-right">Target Qty</th>
+                                    <th class="text-right">Actual Qty</th>
+                                    <th class="text-center">Achievement %</th>
+                                    <th class="text-right">Target Value</th>
+                                    <th class="text-right">Actual Sales Value</th>
+                                </tr>
+                            </thead>
+                            <tbody id="forecastReviewBody"></tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+
+            <!-- VIEW 4: FORECAST ENTRY -->
+            <div class="view-panel" id="view-forecast-entry">
+                <section class="card filter-card">
+                    <header class="report-header" style="margin: -10px -14px 14px -14px;">
+                        <h2 class="report-title">Monthly Sales Forecast Quota Entry</h2>
+                    </header>
+                    <form id="formForecastEntry" class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Sales Officer (TSO) *</label>
+                            <select id="feOfficerSelect" class="apex-input" required></select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Target Month *</label>
+                            <input type="month" id="feMonth" class="apex-input" value="2026-09" required>
+                        </div>
+                        <div class="form-group full-width">
+                            <label class="form-label">Product *</label>
+                            <select id="feProductSelect" class="apex-input" required></select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Target Quantity *</label>
+                            <input type="number" id="feTargetQty" class="apex-input" min="1" value="500" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Target Sales Value (Tk)</label>
+                            <input type="number" id="feTargetAmount" class="apex-input" value="325000">
+                        </div>
+                        <div class="form-group full-width">
+                            <label class="form-label">Quota Notes / Strategy</label>
+                            <input type="text" id="feNotes" class="apex-input" placeholder="e.g. Broiler farming season drive">
+                        </div>
+                        <div class="filter-actions full-width" style="justify-content: flex-end; margin-top: 10px;">
+                            <button type="submit" class="btn-preview">Save Forecast Quota</button>
+                        </div>
+                    </form>
+                </section>
+            </div>
+
+            <!-- VIEW 5: FORECAST REPORT -->
+            <div class="view-panel" id="view-forecast-report">
+                <section class="card report-card">
+                    <header class="report-header">
+                        <h2 class="report-title">Territory Forecast Performance Report</h2>
+                    </header>
+                    <div class="table-responsive">
+                        <table class="apex-grid">
+                            <thead>
+                                <tr>
+                                    <th>Month</th>
+                                    <th>Officer Name</th>
+                                    <th class="text-center">Products Targeted</th>
+                                    <th class="text-right">Target Volume</th>
+                                    <th class="text-right">Actual Volume</th>
+                                    <th class="text-right">Target Revenue</th>
+                                    <th class="text-right">Actual Revenue</th>
+                                </tr>
+                            </thead>
+                            <tbody id="forecastReportBody"></tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+
+            <!-- VIEW 6: MY CUSTOMERS -->
+            <div class="view-panel" id="view-my-customers">
+                <section class="card filter-card" style="display: flex; justify-content: space-between; align-items: center;">
+                    <span class="meta-tag"><i class="fa-solid fa-users"></i> Registered Agrovet Customers & Feed Mills</span>
+                    <button class="btn-add-quick" id="btnAddCustomerBtn"><i class="fa-solid fa-user-plus"></i> Add New Customer</button>
+                </section>
+                <section class="card report-card">
+                    <header class="report-header">
+                        <h2 class="report-title">My Customers Directory & Balances</h2>
+                    </header>
+                    <div class="table-responsive">
+                        <table class="apex-grid">
+                            <thead>
+                                <tr>
+                                    <th>Code</th>
+                                    <th>Customer / Farm Name</th>
+                                    <th>Phone</th>
+                                    <th>Address / Territory</th>
+                                    <th class="text-right">Total Billed</th>
+                                    <th class="text-right">Total Paid</th>
+                                    <th class="text-right">Balance Dues</th>
+                                    <th>Last Order</th>
+                                </tr>
+                            </thead>
+                            <tbody id="customersTableBody"></tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+
+            <!-- VIEW 7: COMPARISION BUSINESS -->
+            <div class="view-panel" id="view-comparison">
+                <section class="card report-card">
+                    <header class="report-header">
+                        <h2 class="report-title">Comparision Business (Period-over-Period Performance)</h2>
+                    </header>
+                    <div class="table-responsive">
+                        <table class="apex-grid">
+                            <thead>
+                                <tr>
+                                    <th>Period</th>
+                                    <th class="text-right">Total Qty</th>
+                                    <th class="text-right">Total Sales Revenue</th>
+                                    <th class="text-right">Total Collections</th>
+                                    <th class="text-right">Outstanding Dues</th>
+                                </tr>
+                            </thead>
+                            <tbody id="comparisonTableBody"></tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+
+            <!-- VIEW 8: CUSTOMER WISE PRODUCT SELL -->
+            <div class="view-panel" id="view-customer-product-sell">
+                <section class="card report-card">
+                    <header class="report-header">
+                        <h2 class="report-title">Customer Wise Product Sell Breakdown</h2>
+                    </header>
+                    <div class="table-responsive">
+                        <table class="apex-grid">
+                            <thead>
+                                <tr>
+                                    <th>Customer Name</th>
+                                    <th>Territory</th>
+                                    <th>Product Name</th>
+                                    <th class="text-right">Total Units</th>
+                                    <th class="text-right">Total Amount (Tk)</th>
+                                    <th class="text-center">Bonus Qty</th>
+                                    <th>Last Order Date</th>
+                                </tr>
+                            </thead>
+                            <tbody id="custProdSellBody"></tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+
+            <!-- VIEW 9: MTD/YTD TOP TEN PRODUCTS -->
+            <div class="view-panel" id="view-top-ten">
+                <section class="card report-card">
+                    <header class="report-header">
+                        <h2 class="report-title">MTD/YTD Top Ten Products (Ranked by Sales Revenue)</h2>
+                    </header>
+                    <div class="table-responsive">
+                        <table class="apex-grid">
+                            <thead>
+                                <tr>
+                                    <th class="text-center">Rank</th>
+                                    <th>Product Code</th>
+                                    <th>Product Name</th>
+                                    <th>Category</th>
+                                    <th>Pack Size</th>
+                                    <th class="text-right">Sold Units</th>
+                                    <th class="text-right">Total Revenue (Tk)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="topTenBody"></tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+
+            <!-- VIEW 10: AGEING REPORT -->
+            <div class="view-panel" id="view-ageing">
+                <section class="card report-card">
+                    <header class="report-header">
+                        <h2 class="report-title">Accounts Receivable Ageing Report (Dues by Age Buckets)</h2>
+                    </header>
+                    <div class="table-responsive">
+                        <table class="apex-grid">
+                            <thead>
+                                <tr>
+                                    <th>Code</th>
+                                    <th>Customer / Farm Name</th>
+                                    <th class="text-right">0 - 30 Days</th>
+                                    <th class="text-right">31 - 60 Days</th>
+                                    <th class="text-right">61 - 90 Days</th>
+                                    <th class="text-right">90+ Days Overdue</th>
+                                    <th class="text-right font-weight-600">Total Dues</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ageingTableBody"></tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+
+            <!-- VIEW 11: OUTSTANDING -->
+            <div class="view-panel" id="view-outstanding">
+                <section class="card report-card">
+                    <header class="report-header">
+                        <h2 class="report-title">Customer Outstanding Balances & Credit Limits</h2>
+                    </header>
+                    <div class="table-responsive">
+                        <table class="apex-grid">
+                            <thead>
+                                <tr>
+                                    <th>Code</th>
+                                    <th>Customer Name</th>
+                                    <th>Territory</th>
+                                    <th class="text-right">Total Invoiced</th>
+                                    <th class="text-right">Total Recovered</th>
+                                    <th class="text-right">Current Dues (Tk)</th>
+                                    <th class="text-right">Credit Limit</th>
+                                    <th>Last Activity</th>
+                                </tr>
+                            </thead>
+                            <tbody id="outstandingTableBody"></tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+
+            <!-- VIEW 12: PRODUCT WISE CUSTOMER SALE -->
+            <div class="view-panel" id="view-product-customer-sale">
+                <section class="card report-card">
+                    <header class="report-header">
+                        <h2 class="report-title">Product Wise Customer Distribution</h2>
+                    </header>
+                    <div class="table-responsive">
+                        <table class="apex-grid">
+                            <thead>
+                                <tr>
+                                    <th>Product Name</th>
+                                    <th>Pack Size</th>
+                                    <th>Trade Price</th>
+                                    <th>Purchased By Customer</th>
+                                    <th>Customer Territory</th>
+                                    <th class="text-right">Quantity</th>
+                                    <th class="text-right">Total Bill (Tk)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="prodCustSaleBody"></tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+
+            <!-- VIEW 13: OUTSTANDING CONFIRMATION -->
+            <div class="view-panel" id="view-outstanding-confirmation">
+                <section class="card filter-card" style="display: flex; justify-content: space-between; align-items: center;">
+                    <span class="meta-tag"><i class="fa-solid fa-certificate"></i> Verified Balance Audit Confirmations</span>
+                    <button class="btn-add-quick" id="btnNewConfirmation"><i class="fa-solid fa-stamp"></i> Record New Confirmation</button>
+                </section>
+                <section class="card report-card">
+                    <header class="report-header">
+                        <h2 class="report-title">Outstanding Confirmation Audit Records</h2>
+                    </header>
+                    <div class="table-responsive">
+                        <table class="apex-grid">
+                            <thead>
+                                <tr>
+                                    <th>Customer Code</th>
+                                    <th>Customer Name</th>
+                                    <th class="text-right">Confirmed Amount</th>
+                                    <th class="text-right">System Dues</th>
+                                    <th>Confirmed Date</th>
+                                    <th>Audited By</th>
+                                    <th>Status</th>
+                                    <th>Remarks</th>
+                                </tr>
+                            </thead>
+                            <tbody id="confirmationTableBody"></tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+
+            <!-- VIEW 14: MASTER SETUP (PRODUCTS) -->
+            <div class="view-panel" id="view-master-setup">
+                <section class="card filter-card" style="display: flex; justify-content: space-between; align-items: center;">
+                    <span class="meta-tag"><i class="fa-solid fa-boxes-stacked"></i> SOHA ENTERPRISE Product Catalog</span>
+                    <button class="btn-add-quick" id="btnNewProduct"><i class="fa-solid fa-plus"></i> Add Product</button>
+                </section>
+                <section class="card report-card">
+                    <header class="report-header">
+                        <h2 class="report-title">Product Master Setup</h2>
+                    </header>
+                    <div class="table-responsive">
+                        <table class="apex-grid">
+                            <thead>
+                                <tr>
+                                    <th>Code</th>
+                                    <th>Product Name</th>
+                                    <th>Category</th>
+                                    <th>Pack Size</th>
+                                    <th class="text-right">Trade Price (Tk)</th>
+                                    <th class="text-right">Stock Qty</th>
+                                </tr>
+                            </thead>
+                            <tbody id="masterProductsBody"></tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+
+            <!-- VIEW 15: SALES -->
+            <div class="view-panel" id="view-sales">
+                <section class="card filter-card" style="display: flex; justify-content: space-between; align-items: center;">
+                    <span class="meta-tag"><i class="fa-solid fa-file-invoice"></i> Sales Operations & Invoicing</span>
+                    <button class="btn-preview" onclick="window.app.openNewTx()"><i class="fa-solid fa-cart-plus"></i> Create New Sales Order</button>
+                </section>
+                <section class="card report-card">
+                    <header class="report-header">
+                        <h2 class="report-title">Sales Orders Ledger</h2>
+                    </header>
+                    <div class="table-responsive">
+                        <table class="apex-grid">
+                            <thead>
+                                <tr>
+                                    <th>Invoice No</th>
+                                    <th>Date</th>
+                                    <th>Customer</th>
+                                    <th>Product</th>
+                                    <th class="text-right">Qty</th>
+                                    <th class="text-right">Total Price</th>
+                                    <th class="text-right">Dues</th>
+                                    <th class="text-right">Cash Received</th>
+                                </tr>
+                            </thead>
+                            <tbody id="salesLedgerBody"></tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+
+            <!-- VIEW 16: COLLECTION -->
+            <div class="view-panel" id="view-collection">
+                <section class="card filter-card" style="display: flex; justify-content: space-between; align-items: center;">
+                    <span class="meta-tag"><i class="fa-solid fa-hand-holding-dollar"></i> Cash & Cheque Collections</span>
+                    <button class="btn-preview" id="btnOpenNewCollPage"><i class="fa-solid fa-plus"></i> Record Collection Voucher</button>
+                </section>
+                <section class="card report-card">
+                    <header class="report-header">
+                        <h2 class="report-title">Payment Collection Receipts</h2>
+                    </header>
+                    <div class="table-responsive">
+                        <table class="apex-grid">
+                            <thead>
+                                <tr>
+                                    <th>Receipt No</th>
+                                    <th>Date</th>
+                                    <th>Customer</th>
+                                    <th>Collected By</th>
+                                    <th class="text-right">Amount (Tk)</th>
+                                    <th>Method</th>
+                                    <th>Bank</th>
+                                    <th>Notes</th>
+                                </tr>
+                            </thead>
+                            <tbody id="collectionTableBody"></tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+
+            <!-- VIEW 17: BILL MANAGEMENT -->
+            <div class="view-panel" id="view-bills">
+                <section class="card report-card">
+                    <header class="report-header">
+                        <h2 class="report-title">Bill Management & Customer Invoices</h2>
+                    </header>
+                    <div class="table-responsive">
+                        <table class="apex-grid">
+                            <thead>
+                                <tr>
+                                    <th>Invoice No</th>
+                                    <th>Date</th>
+                                    <th>Customer</th>
+                                    <th>Billing Address</th>
+                                    <th>Item</th>
+                                    <th class="text-right">Quantity</th>
+                                    <th class="text-right">Bill Amount</th>
+                                    <th class="text-right">Due Balance</th>
+                                    <th class="text-center">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="billsTableBody"></tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Footer -->
+            <footer class="apex-footer">
+                <div class="footer-left">
+                    <span class="release-tag">Release 1.1</span>
+                    <a href="javascript:void(0)" class="footer-link">Customize</a>
+                </div>
+                <div class="footer-right">
+                    <span class="footer-copy">SOHA ENTERPRISE &copy; 2026</span>
+                </div>
+            </footer>
+        </main>
+    </div>
+
+    <!-- Floating Back to Top Button -->
+    <button class="floating-scroll-top" id="scrollTopBtn" title="Scroll to Top">
+        <i class="fa-solid fa-chevron-up"></i>
+    </button>
+
+    <!-- ============================================================ -->
+    <!-- MODAL: CREATE NEW SUB-ACCOUNT (MAIN ADMIN ONLY) -->
+    <!-- ============================================================ -->
+    <div class="modal-overlay" id="subUserModal">
+        <div class="modal-card">
+            <header class="modal-header">
+                <div class="modal-title-box">
+                    <i class="fa-solid fa-user-shield modal-icon"></i>
+                    <div>
+                        <h3 class="modal-title">Create Sub-Account (RBAC)</h3>
+                        <p class="modal-subtitle">Main Admin: Provision new user credentials in SQLite</p>
+                    </div>
+                </div>
+                <button class="btn-close-modal" id="btnCloseSubUserModal">&times;</button>
+            </header>
+            <form id="newSubUserForm" class="modal-body form-grid">
+                <div class="form-group">
+                    <label class="form-label">Username *</label>
+                    <input type="text" id="subUsername" class="apex-input" placeholder="e.g. tso1044 or anisur" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Password *</label>
+                    <input type="password" id="subPassword" class="apex-input" placeholder="Minimum 6 characters" required>
+                </div>
+                <div class="form-group full-width">
+                    <label class="form-label">Full Name *</label>
+                    <input type="text" id="subFullName" class="apex-input" placeholder="e.g. MD ANISUR RAHMAN" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Role / Access Level *</label>
+                    <select id="subRole" class="apex-input" required>
+                        <option value="tso_officer">TSO Officer (Field Sales)</option>
+                        <option value="sub_admin">Sub-Admin (Office Operations)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Phone Number</label>
+                    <input type="text" id="subPhone" class="apex-input" placeholder="017xxxxxxxx">
+                </div>
+                <div class="form-group full-width">
+                    <label class="form-label">Associated Officer Profile (Optional)</label>
+                    <select id="subEmployeeSelect" class="apex-input">
+                        <option value="">-- None / Direct Operator --</option>
+                    </select>
+                </div>
+                <div class="form-group full-width" style="font-size: 11px; color: #64748b; background: #f8fafc; padding: 8px; border-radius: 4px;">
+                    <i class="fa-solid fa-circle-info text-primary"></i> <strong>Note:</strong> The new sub-account will be instantly saved to the SQLite database and can sign in right away.
+                </div>
+            </form>
+            <footer class="modal-footer">
+                <button type="button" class="btn-secondary" id="btnCancelSubUser">Cancel</button>
+                <button type="button" class="btn-preview" id="btnSubmitSubUser">Create Sub-Account</button>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Detail Breakdown Modal -->
+    <div class="modal-overlay" id="detailModal">
+        <div class="modal-card modal-lg">
+            <header class="modal-header">
+                <div class="modal-title-box">
+                    <i class="fa-solid fa-receipt modal-icon"></i>
+                    <div>
+                        <h3 class="modal-title" id="modalOfficerName">Transaction Breakdown</h3>
+                        <p class="modal-subtitle" id="modalOfficerSubtitle">SOHA ENTERPRISE ERP</p>
+                    </div>
+                </div>
+                <button class="btn-close-modal" id="btnCloseDetailModal">&times;</button>
+            </header>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="apex-grid table-detail">
+                        <thead>
+                            <tr>
+                                <th>Invoice No</th>
+                                <th>Date</th>
+                                <th>Customer</th>
+                                <th>Product</th>
+                                <th class="text-right">Qty</th>
+                                <th class="text-right">Unit Price</th>
+                                <th class="text-right">Total Price</th>
+                                <th class="text-center">Bonus</th>
+                                <th class="text-right">Discount</th>
+                                <th class="text-right">Dues</th>
+                                <th class="text-right">Cash Coll.</th>
+                            </tr>
+                        </thead>
+                        <tbody id="detailModalBody"></tbody>
+                    </table>
+                </div>
+            </div>
+            <footer class="modal-footer">
+                <button class="btn-secondary" id="btnCloseDetailModalBtn">Close</button>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Add New Transaction Modal -->
+    <div class="modal-overlay" id="addTxModal">
+        <div class="modal-card">
+            <header class="modal-header">
+                <div class="modal-title-box">
+                    <i class="fa-solid fa-plus-circle modal-icon"></i>
+                    <div>
+                        <h3 class="modal-title">New Sales Order</h3>
+                        <p class="modal-subtitle">Direct write to SOHA ENTERPRISE SQLite DB</p>
+                    </div>
+                </div>
+                <button class="btn-close-modal" id="btnCloseAddModal">&times;</button>
+            </header>
+            <form id="newTxForm" class="modal-body form-grid">
+                <div class="form-group full-width">
+                    <label class="form-label">Sales Officer (TSO) *</label>
+                    <select id="txEmployeeSelect" class="apex-input" required></select>
+                </div>
+                <div class="form-group full-width">
+                    <label class="form-label">Customer / Farm / Dealer *</label>
+                    <select id="txCustomerSelect" class="apex-input" required></select>
+                </div>
+                <div class="form-group full-width">
+                    <label class="form-label">Product *</label>
+                    <select id="txProductSelect" class="apex-input" required></select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Date *</label>
+                    <input type="date" id="txDate" class="apex-input" value="2026-08-25" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Quantity *</label>
+                    <input type="number" id="txQty" class="apex-input" min="1" value="100" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Unit Price (Tk) *</label>
+                    <input type="number" id="txUnitPrice" class="apex-input" step="0.01" value="650" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Bonus Qty</label>
+                    <input type="number" id="txBonusQty" class="apex-input" min="0" value="0">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Discount Amt (Tk)</label>
+                    <input type="number" id="txDiscount" class="apex-input" min="0" value="0">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Dues (Tk)</label>
+                    <input type="number" id="txDues" class="apex-input" min="0" value="0">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Collection Cash (Tk)</label>
+                    <input type="number" id="txCollCash" class="apex-input" min="0" value="0">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Collection Comm (Tk)</label>
+                    <input type="number" id="txCollComm" class="apex-input" min="0" value="0">
+                </div>
+                <div class="form-group full-width">
+                    <label class="form-label">Notes / Remarks</label>
+                    <input type="text" id="txNotes" class="apex-input" placeholder="Invoice details">
+                </div>
+                <div class="form-group full-width total-preview-box">
+                    <span>Order Amount: <strong id="txPreviewTotal">৳ 65,000</strong></span>
+                </div>
+            </form>
+            <footer class="modal-footer">
+                <button type="button" class="btn-secondary" id="btnCancelAdd">Cancel</button>
+                <button type="button" class="btn-preview" id="btnSubmitTx">Save Order</button>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Modal: New Customer -->
+    <div class="modal-overlay" id="customerModal">
+        <div class="modal-card">
+            <header class="modal-header">
+                <div class="modal-title-box">
+                    <i class="fa-solid fa-user-plus modal-icon"></i>
+                    <div>
+                        <h3 class="modal-title">Add New Customer</h3>
+                        <p class="modal-subtitle">Save customer into SQLite</p>
+                    </div>
+                </div>
+                <button class="btn-close-modal" id="btnCloseCustomerModal">&times;</button>
+            </header>
+            <form id="newCustomerForm" class="modal-body form-grid">
+                <div class="form-group">
+                    <label class="form-label">Customer Code *</label>
+                    <input type="text" id="newCustCode" class="apex-input" placeholder="CUST-206" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Customer / Farm Name *</label>
+                    <input type="text" id="newCustName" class="apex-input" placeholder="e.g. Padma Agrovet" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Phone Number</label>
+                    <input type="text" id="newCustPhone" class="apex-input" placeholder="017xxxxxxxx">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Territory</label>
+                    <input type="text" id="newCustTerritory" class="apex-input" value="Dhaka North">
+                </div>
+                <div class="form-group full-width">
+                    <label class="form-label">Address</label>
+                    <input type="text" id="newCustAddress" class="apex-input" placeholder="Market, Police Station, District">
+                </div>
+                <div class="form-group full-width">
+                    <label class="form-label">Credit Limit (Tk)</label>
+                    <input type="number" id="newCustCreditLimit" class="apex-input" value="1000000">
+                </div>
+            </form>
+            <footer class="modal-footer">
+                <button type="button" class="btn-secondary" id="btnCancelCust">Cancel</button>
+                <button type="button" class="btn-preview" id="btnSubmitCustomer">Save Customer</button>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Modal: New Collection Voucher -->
+    <div class="modal-overlay" id="collectionModal">
+        <div class="modal-card">
+            <header class="modal-header">
+                <div class="modal-title-box">
+                    <i class="fa-solid fa-money-bill-wave modal-icon"></i>
+                    <div>
+                        <h3 class="modal-title">Record Payment Collection</h3>
+                        <p class="modal-subtitle">Direct write to SQLite collections</p>
+                    </div>
+                </div>
+                <button class="btn-close-modal" id="btnCloseCollModal">&times;</button>
+            </header>
+            <form id="newCollForm" class="modal-body form-grid">
+                <div class="form-group full-width">
+                    <label class="form-label">Customer *</label>
+                    <select id="collCustSelect" class="apex-input" required></select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Date *</label>
+                    <input type="date" id="collDate" class="apex-input" value="2026-08-29" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Collected Amount (Tk) *</label>
+                    <input type="number" id="collAmount" class="apex-input" min="1" value="50000" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Payment Method</label>
+                    <select id="collMethod" class="apex-input">
+                        <option value="Cash">Cash</option>
+                        <option value="Cheque">Cheque</option>
+                        <option value="Bank Transfer">Bank Transfer</option>
+                        <option value="bKash">bKash</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Bank Name (if Cheque/Online)</label>
+                    <input type="text" id="collBank" class="apex-input" placeholder="e.g. Islami Bank">
+                </div>
+                <div class="form-group full-width">
+                    <label class="form-label">Collection Remarks</label>
+                    <input type="text" id="collNotes" class="apex-input" placeholder="Money receipt notes">
+                </div>
+            </form>
+            <footer class="modal-footer">
+                <button type="button" class="btn-secondary" id="btnCancelColl">Cancel</button>
+                <button type="button" class="btn-preview" id="btnSubmitColl">Save Receipt</button>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Modal: New Product -->
+    <div class="modal-overlay" id="productModal">
+        <div class="modal-card">
+            <header class="modal-header">
+                <div class="modal-title-box">
+                    <i class="fa-solid fa-box modal-icon"></i>
+                    <div>
+                        <h3 class="modal-title">Add Master Product</h3>
+                        <p class="modal-subtitle">Save product into SQLite</p>
+                    </div>
+                </div>
+                <button class="btn-close-modal" id="btnCloseProdModal">&times;</button>
+            </header>
+            <form id="newProdForm" class="modal-body form-grid">
+                <div class="form-group">
+                    <label class="form-label">Product Code *</label>
+                    <input type="text" id="newProdCode" class="apex-input" placeholder="PRD-107" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Product Name *</label>
+                    <input type="text" id="newProdName" class="apex-input" placeholder="e.g. Soha-Zinc Plus" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Pack Size</label>
+                    <input type="text" id="newProdPack" class="apex-input" placeholder="e.g. 500 ml">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Trade Price (Tk) *</label>
+                    <input type="number" id="newProdPrice" class="apex-input" step="0.01" value="480" required>
+                </div>
+                <div class="form-group full-width">
+                    <label class="form-label">Category</label>
+                    <input type="text" id="newProdCategory" class="apex-input" value="Agrovet & Veterinary">
+                </div>
+            </form>
+            <footer class="modal-footer">
+                <button type="button" class="btn-secondary" id="btnCancelProd">Cancel</button>
+                <button type="button" class="btn-preview" id="btnSubmitProd">Save Product</button>
+            </footer>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>

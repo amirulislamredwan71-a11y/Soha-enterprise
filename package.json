@@ -1,0 +1,24 @@
+﻿{
+  "name": "soha-enterprise",
+  "version": "1.0.0",
+  "description": "SOHA ENTERPRISE - Enterprise ERP Dashboard with native SQLite backend & RBAC",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "seed": "node db/seed.js",
+    "clean": "node db/clean.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2"
+  },
+  "keywords": [
+    "erp",
+    "soha-enterprise",
+    "dashboard",
+    "sqlite",
+    "bangladesh"
+  ],
+  "author": "SOHA ENTERPRISE",
+  "license": "ISC"
+}
