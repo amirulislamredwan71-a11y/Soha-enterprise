@@ -1,4 +1,4 @@
-﻿{
+{
   "name": "soha-enterprise",
   "version": "1.0.0",
   "description": "SOHA ENTERPRISE - Enterprise ERP Dashboard with native SQLite backend & RBAC",
@@ -10,7 +10,9 @@
   },
   "dependencies": {
     "cors": "^2.8.5",
-    "express": "^4.21.2"
+    "dotenv": "^17.4.2",
+    "express": "^4.21.2",
+    "pg": "^8.23.0"
   },
   "keywords": [
     "erp",

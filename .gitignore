@@ -1,4 +1,4 @@
-﻿# Dependencies
+# Dependencies
 node_modules/
 
 # OS metadata
@@ -11,3 +11,9 @@ npm-debug.log*
 
 # Environment
 .env
+
+# SQLite local database
+*.db
+
+# Credential files
+*.txt
